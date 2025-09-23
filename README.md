@@ -31,6 +31,10 @@ python gerber2nc.py /home/user/myboard myboard_mill
 - `<project>.nc` or `<output_name>.nc` - G-code file
 - Interactive visualization window
 
+<img src="images/example_pcb.png">
+<img src="images/example_milled_pcbs.jpg">
+
+
 ## Workflow
 1. **Generate Gerbers in KiCad:**
    - Plot → Layers: F.Cu, Edge.cuts
