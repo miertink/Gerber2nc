@@ -734,7 +734,7 @@ visualizer.load_trace_geometries(gerber_traces)
 visualizer.load_trace_mill_geometry(trace_mill_geometry)
 visualizer.load_edge_cut_geometry(gerber_edgecuts.outline)
 visualizer.load_holes(drilldata.holes)
-visualizer.save_png_visualization(f"{outname}_visualization.png")
+visualizer.save_png_visualization(f"{outname}_Visualization.png")
 
 # 7. Generate G-Code Files
 gcode = GcodeGenerator()
