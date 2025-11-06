@@ -50,10 +50,10 @@ python3 gerber2nc_v2.py MyBoard
 
 The script will generate the following files:
 
-  * `MyBoard_Engraving.nc` (G-Code for trace isolation)
-  * `MyBoard_Small_Drill.nc` (G-Code for small holes)
-  * `MyBoard_Large_Drill.nc` (G-Code for large holes)
-  * `MyBoard_Edge_Cut.nc` (G-Code for final board marking the PCB outline, use a bandsaw for final separation)
+  * `MyBoard_Engraving.gcode` (G-Code for trace isolation)
+  * `MyBoard_Small_Drill.gcode` (G-Code for small holes)
+  * `MyBoard_Large_Drill.gcode` (G-Code for large holes)
+  * `MyBoard_Edge_Cut.gcode` (G-Code for final board marking the PCB outline, use a bandsaw for final separation)
   * `MyBoard_visualization.png` (Visual map of all toolpaths)
 
 -----

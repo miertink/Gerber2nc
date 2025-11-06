@@ -301,7 +301,7 @@ def main_routine():
     """
     Main entry point for the routine.
     """
-    base_name = input("Enter base file name (e.g., 'ProDOS ROM-Drive'): ").strip()
+    base_name = input("Enter base file name (e.g., 'MyBoard'): ").strip()
 
     if not base_name: return
 

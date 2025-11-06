@@ -541,7 +541,7 @@ if len(sys.argv) < 2:
     sys.exit();
 
 base_name = sys.argv[1].replace("\\","/")
-outname = base_name.split("/")[-1]+".nc"
+outname = base_name.split("/")[-1]+".gcode"
 
 # For calculating extents of the board
 x_min:float = 1000000.0
@@ -577,6 +577,6 @@ visualizer.load_holes(drilldata.holes)
 visualizer.create_tkinter_visualization();
 
 # After window is closed, generate the G-code
-if len(sys.argv) > 2:  outname = sys.argv[2]+".nc"
+if len(sys.argv) > 2:  outname = sys.argv[2]+".gcode"
 gcode = Gcode_Generator()
 gcode.OutputGcode(outname, gerber_edgecuts.outline, trace_mill_geometry, drilldata.holes)

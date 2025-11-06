@@ -24,11 +24,11 @@ SMALL_HOLE_MAX_DIAMETER = 0.85  # Max diameter (mm) for 'small' drill group
 # CNC Milling Parameters
 SPINDLE_SPEED = 12000  # RPM
 CUT_DEPTH = -0.1  # mm (Trace isolation depth)
-FINAL_CUT_DEPTH = -1.8  # mm (Final edge cut depth)
-SAFE_HEIGHT = 3.0  # mm above workpiece
-PLUNGE_FEED_RATE = 200  # mm/min (Z axis feed rate)
-FEED_RATE = 450  # mm/min (XY trace feed rate)
-CUT_FEED_RATE = 300  # mm/min (XY final cut feed rate)
+FINAL_CUT_DEPTH = -0.5  # mm (Final edge cut depth)
+SAFE_HEIGHT = 5.0  # mm above workpiece
+PLUNGE_FEED_RATE = 100  # mm/min (Z axis feed rate)
+FEED_RATE = 300  # mm/min (XY trace feed rate)
+CUT_FEED_RATE = 200  # mm/min (XY final cut feed rate)
 HOLE_START_DEPTH = 0.1  # Depth before slow drilling
 HOLE_FINAL_DEPTH = -1.8  # Final hole depth
 
@@ -467,6 +467,8 @@ class GcodeGenerator:
         f.write(f"; GCODE FILE: {description}\n")
         f.write("G21  ; Set units to mm\n")
         f.write("G90  ; Absolute positioning\n")
+        f.write("G28  ; Homing\n")
+        f.write("G420 S1  ; Activate bed leveling\n")
         f.write(f"G0 Z{SAFE_HEIGHT:.2f}  ; Move to safe height\n")
         f.write(f"(load {tool_name})\nT{tool_num} M06\n")
 
@@ -740,18 +742,18 @@ visualizer.save_png_visualization(f"{outname}_Visualization.png")
 gcode = GcodeGenerator()
 
 # Trace Isolation
-gcode.OutputEngravingGcode(f"{outname}_Engraving.nc",
+gcode.OutputEngravingGcode(f"{outname}_Engraving.gcode",
                            gerber_edgecuts.outline,
                            trace_mill_geometry)
 
 # Small Hole Drilling
-gcode.OutputSmallDrillGcode(f"{outname}_Small_Drill.nc",
+gcode.OutputSmallDrillGcode(f"{outname}_Small_Drill.gcode",
                             drilldata.small_holes)
 
 # Large Hole Drilling
-gcode.OutputLargeDrillGcode(f"{outname}_Large_Drill.nc",
+gcode.OutputLargeDrillGcode(f"{outname}_Large_Drill.gcode",
                             drilldata.large_holes)
 
 # Final Edge Cut - NOW USES CLEARANCE
-gcode.OutputEdgeCutGcode(f"{outname}_Edge_Cut.nc",
+gcode.OutputEdgeCutGcode(f"{outname}_Edge_Cut.gcode",
                          gerber_edgecuts.outline)
