@@ -1,6 +1,6 @@
 # ⚙️ KiCad Gerber to CNC G-Code Generator (Python)
 
-This Python script is a robust tool designed to transform **KiCad Gerber** and **Excellon drill files** into optimized **G-Code** for PCB milling machines. It handles trace isolation routing, drilling, and incorporates advanced features like **edge cut clearance** and **mouse-bite (tab)** generation for clean board separation.
+This Python script is a robust tool designed to transform **KiCad Gerber** and **Excellon drill files** into optimized **G-Code** for PCB milling machines. It handles trace isolation routing, drilling, and incorporates advanced features like **edge cut clearance**  generation for clean board separation.
 
 The script is based on Matthias Wandel script:
 https://github.com/Matthias-Wandel/Gerber2nc
