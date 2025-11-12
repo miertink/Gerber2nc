@@ -1,7 +1,6 @@
 #!/usr/bin/python3
-# Generates CNC tool paths (G-code) from a single-sided KiCad PCB layout.
-# Supports traces, holes, and pads (no rotated pads).
-# Requires the 'shapely' and 'numpy' library (pip install shapely / pip install numpy).
+# Generates CNC tool paths (G-code) from a KiCad PCB layout.
+# Requires 'shapely' and 'numpy'.
 
 import sys, re
 from shapely.geometry import LineString, MultiLineString, Point, box
@@ -14,32 +13,32 @@ from typing import List, Tuple
 # --- CONFIGURATION PARAMETERS ---
 
 # PCB & Optimization
-START_TARGET_X = 4.0  # PCB bottom-left corner target X (Replaces SAFETY_PADDING_X)
-START_TARGET_Y = 17.0  # PCB bottom-left corner target Y (Replaces SAFETY_PADDING_Y)
-FLOAT_TOLERANCE = 1e-4  # Tolerance for float comparison
-SMALL_HOLE_MAX_DIAMETER = 0.85  # Max diameter (mm) for 'small' drill group
+START_TARGET_X = 4.0  # PCB origin X target
+START_TARGET_Y = 17.0  # PCB origin Y target
+FLOAT_TOLERANCE = 1e-4  # Float comparison tolerance
+SMALL_HOLE_MAX_DIAMETER = 0.85  # Max diameter for 'small' drill group
 
 # CNC Milling Parameters
 SPINDLE_SPEED = 12000  # RPM
 CUT_DEPTH = -0.08  # mm (Trace isolation depth)
 FINAL_CUT_DEPTH = -0.5  # mm (Final edge cut depth)
 SAFE_HEIGHT = 5.0  # mm above workpiece
-MOVE_FEED_RATE = 2000  # mm/min (High speed for G0 X/Y movements)
+MOVE_FEED_RATE = 2000  # mm/min (G0 X/Y speed)
 PLUNGE_FEED_RATE = 50  # mm/min (Z axis feed rate)
 CUT_FEED_RATE = 100  # mm/min (XY final cut feed rate)
 FEED_RATE = 100  # mm/min (XY trace feed rate)
 HOLE_START_DEPTH = 0.1  # Depth before slow drilling
-HOLE_PRE_DEPTH = -0.1 # mm (Light plunge for hole center marking)
+HOLE_PRE_DEPTH = -0.1  # mm (Light plunge for center marking)
 HOLE_FINAL_DEPTH = -1.8  # Final hole depth
 
 # Trace Isolation Path Calculation
 ISOLATION_OFFSET = 0.22  # mm (Distance from trace center for first pass)
-ISOLATION_PASSES = 2  # Number of passes for isolation
-PASS_SPACING = 0.1  # mm (Spacing between isolation passes)
+PASS_SPACING = 0.1  # mm (Spacing between secondary passes)
 
-# NEW PARAMETERS FOR PADDING
+# Edge Cut Parameters
 EDGE_CUT_CLEARANCE_OFFSET = 1.0  # mm (Offset distance for final cut path, positive is outside)
-MESH_PADDING = 5.0  # mm (Padding for eventual Bed Mesh bounds - not used here, but available)
+MESH_PADDING = 5.0  # mm (Reserved for bed mesh bounds)
+
 
 # --------------------------------
 
@@ -183,7 +182,7 @@ class GerberEdgeCutsParser:
         self.outline = self.raw_outline[:]
 
     def shift(self, x_shift, y_shift):
-        # The Edge Cut coordinates must be shifted too, as they are used to compute the final bounds.
+        # Shift outline coordinates for proper bounding box calculation
         self.raw_outline = [(x - x_shift, y - y_shift) for x, y in self.raw_outline]
         self.outline = self.raw_outline[:]
 
@@ -286,14 +285,50 @@ class ShapelyBases:
 
         self.combined_geometry = unary_union(traces + pads)
 
-    def compute_trace_toolpaths(self, offset_distance: float, num_passes: int, path_spacing: float):
+    def compute_trace_toolpaths(self, offset_distance: float, pass_spacing: float):
+        """
+        Computes three isolation passes, optimizing direction for cut quality (assuming M3/clockwise spindle):
+        1. Primary Pass (Reversed Direction for CLIMB MILLING).
+        2. Secondary Pass 1 (+ spacing, Normal Direction for CONVENTIONAL MILLING/Cleanup).
+        3. Secondary Pass 2 (- spacing, Normal Direction for CONVENTIONAL MILLING/Cleanup).
+        """
         all_passes = []
-        for passnum in range(0, num_passes):
-            offset = offset_distance + path_spacing * passnum
+
+        # Pass definitions: (Offset, Reverse Direction, Description)
+        # Shapely's .boundary usually results in Conventional Milling by default.
+        # We REVERSE the Primary Pass to enforce CLIMB MILLING.
+        pass_definitions = [
+            (offset_distance, True, "Primary Pass (Climb Milling)"),
+            (offset_distance + pass_spacing, False, "Secondary Pass 1 (Conventional Milling/Cleanup)"),
+            (offset_distance - pass_spacing, False, "Secondary Pass 2 (Conventional Milling/Cleanup)"),
+        ]
+
+        for offset, reverse_direction, description in pass_definitions:
+            print(f"DEBUG: Generating {description} at offset {offset:.3f} mm")
+
+            # Generate path geometry (LineString or MultiLineString)
             thispath = self.combined_geometry.buffer(offset).simplify(0.03).boundary
-            if isinstance(thispath, LineString): thispath = MultiLineString([thispath])
+
+            if isinstance(thispath, LineString):
+                thispath = MultiLineString([thispath])
+
             if hasattr(thispath, 'geoms'):
-                all_passes += list(thispath.geoms)
+                paths_for_this_pass = []
+
+                if reverse_direction:
+                    # Apply inversion (Climb Milling for Primary Pass)
+                    for geom in thispath.geoms:
+                        if geom.geom_type == 'LineString':
+                            # Invert coordinate order
+                            reversed_coords = list(geom.coords)[::-1]
+                            paths_for_this_pass.append(LineString(reversed_coords))
+                        else:
+                            paths_for_this_pass.append(geom)
+                else:
+                    # Use normal direction (Conventional Milling for Secondary Passes/Cleanup)
+                    paths_for_this_pass = list(thispath.geoms)
+
+                all_passes += paths_for_this_pass
 
         return MultiLineString(all_passes)
 
@@ -320,13 +355,11 @@ class OutputVisualizer:
         global x_min, x_max, y_min, y_max
         global outname
 
-        # Use optimized edge cut bounds
         x_min_v, x_max_v, y_min_v, y_max_v = x_min, x_max, y_min, y_max
 
         width_mm = x_max_v - x_min_v
         height_mm = y_max_v - y_min_v
 
-        # Extra margin around the PCB
         margin_mm = 5
 
         width_px = int((width_mm + 2 * margin_mm) * self.scale)
@@ -335,23 +368,20 @@ class OutputVisualizer:
         img = Image.new('RGB', (width_px, height_px), color='black')
         draw = ImageDraw.Draw(img)
 
-        # x_base_offset_px: Shifts PCB's x_min_v (should be START_TARGET) to 'margin_mm' in the PNG.
-        # Calculation: Target_Margin_Position - x_min_v * scale
+        # Calculate pixel offset to center the PCB in the image
         x_base_offset_px = int((margin_mm - x_min_v) * self.scale)
-
-        # y_base_offset_px: Shift y_min_v (should be START_TARGET).
         y_base_offset_px = int((margin_mm - y_min_v) * self.scale)
 
         pcb_color = (0, 80, 0)
 
-        # Draw Edge Cuts (Contour) - Polygon
+        # Draw Edge Cuts (Contour)
         if self.edgecuts:
-            # Generate the buffered/cleared outline for visualization
-            outline_geom = LineString(self.edgecuts).buffer(EDGE_CUT_CLEARANCE_OFFSET, cap_style=3, join_style=2)
+            outline_geom = LineString(self.edgecuts).buffer(EDGE_CUT_CLEARANCE_OFFSET, cap_style=3,
+                                                            join_style=2).exterior
 
             coords_px = []
-            if hasattr(outline_geom.exterior, 'coords'):
-                for x, y in outline_geom.exterior.coords:
+            if hasattr(outline_geom, 'coords'):
+                for x, y in outline_geom.coords:
                     screen_x = int(x * self.scale + x_base_offset_px)
                     # Y Inversion
                     screen_y = int(height_px - (y * self.scale + y_base_offset_px))
@@ -398,15 +428,15 @@ class OutputVisualizer:
                 radius_px = int((aperture['diameter'] / 2) * self.scale)
                 draw.ellipse((x_center_px - radius_px, y_center_px - radius_px,
                               x_center_px + radius_px, y_center_px + radius_px),
-                              fill=(0, 0, 255), outline=(173, 216, 230))
+                             fill=(0, 0, 255), outline=(173, 216, 230))
             elif aperture['type'] == 'rectangle':
                 width_px = int(aperture['width'] * self.scale / 2)
                 height_px_half = int(aperture['height'] * self.scale / 2)
                 draw.rectangle((x_center_px - width_px, y_center_px - height_px_half,
-                                 x_center_px + width_px, y_center_px + height_px_half),
-                                 fill=(0, 0, 255), outline=(173, 216, 230))
+                                x_center_px + width_px, y_center_px + height_px_half),
+                               fill=(0, 0, 255), outline=(173, 216, 230))
 
-        # Draw Toolpaths (White) - Line
+        # Draw Toolpaths (White)
         if hasattr(self, 'trace_mill_geometry') and self.trace_mill_geometry:
             for shape in self.trace_mill_geometry.geoms:
                 coords_px = []
@@ -417,7 +447,7 @@ class OutputVisualizer:
                 if len(coords_px) > 1:
                     draw.line(coords_px, fill=(255, 255, 255), width=2)
 
-        # Draw Holes (Black) - Ellipse
+        # Draw Holes (Black)
         for hole in self.holes:
             x, y, diameter = hole
             x_center_px = int(x * self.scale + x_base_offset_px)
@@ -425,7 +455,7 @@ class OutputVisualizer:
             radius_px = int(diameter / 2 * self.scale)
             draw.ellipse((x_center_px - radius_px, y_center_px - radius_px,
                           x_center_px + radius_px, y_center_px + radius_px),
-                          fill=(0, 0, 0), outline=(255, 255, 255), width=1)
+                         fill=(0, 0, 0), outline=(255, 255, 255), width=1)
 
         img.save(filename)
         print(f"Visualization saved to '{filename}'")
@@ -486,7 +516,6 @@ class GcodeGenerator:
         self._write_header(f, "Hole Center Marking (Pre-Drill)", 1, "Pre-Drill Tool (T1)")
 
         f.write(f"\n; --- CENTER MARKING OPERATIONS (ALL HOLES) ---\n")
-        f.write(f"; Pre-drill depth: {HOLE_PRE_DEPTH:.2f} mm\n")
 
         for x, y, _ in all_holes:
             f.write(f"G0 X{x:.2f} Y{y:.2f} F{MOVE_FEED_RATE}\n")
@@ -502,18 +531,16 @@ class GcodeGenerator:
             print(f"Warning: No edge cuts found. Skipping file generation: {filename}")
             return
 
-        # Use shapely to create an outer buffer based on the clearance offset.
-        # LineString(edgecuts) converts the list of coordinates to a line (contour).
+        # Create an outer buffer based on the clearance offset.
         outline_geom = LineString(edgecuts).buffer(EDGE_CUT_CLEARANCE_OFFSET, cap_style=3, join_style=2).exterior.coords
 
         cleared_coords = list(outline_geom)
 
         f = open(filename, "w")
         self._write_header(f, f"PCB Final Edge Cut (Cleared by {EDGE_CUT_CLEARANCE_OFFSET}mm)", 4,
-                            "Edge Cut Tool (T4 - 1.0mm or more)")
+                           "Edge Cut Tool (T4 - 1.0mm or more)")
 
         f.write("\n; --- PCB FINAL EDGE CUT (WITH CLEARANCE) ---\n")
-        f.write(f"; Toolpath offset applied: {EDGE_CUT_CLEARANCE_OFFSET} mm\n")
         started = False
 
         for x, y in cleared_coords:
@@ -575,16 +602,12 @@ class GcodeGenerator:
 # EDGE CUT OPTIMIZATION FUNCTION
 def optimize_contour_points(contour_coords: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     """
-    Positions, circularly sequences, and cleans the contour points.
-    Input coords MUST be positioned (already shifted).
+    Sequences and cleans the contour points.
     """
     if not contour_coords:
         return []
 
     coords_array = np.array(contour_coords)
-
-    # Note: The raw offset/shift was already applied in the main execution flow
-    # based on the global min/max before this function is called.
 
     # 1. Circular Ordering
     center_x_new = np.mean(coords_array[:, 0])
@@ -669,18 +692,16 @@ y_shift_base = y_min
 
 print(f"SHIFT: Raw Min X: {x_shift_base:.2f}, Raw Min Y: {y_shift_base:.2f}")
 
-# Calculate the shift required to move the raw minimum (x_shift_base, y_shift_base)
-# to the desired starting target (START_TARGET_X, START_TARGET_Y).
+# Calculate the shift required to move the raw minimum to the desired starting target.
 shift_for_subtraction_x = x_shift_base - START_TARGET_X
 shift_for_subtraction_y = y_shift_base - START_TARGET_Y
 
 # 2. Apply the offset to all elements (Traces, Drills, and Raw Edge Cuts)
 gerber_traces.shift(shift_for_subtraction_x, shift_for_subtraction_y)
 drilldata.shift(shift_for_subtraction_x, shift_for_subtraction_y)
-# The Edge Cut parser needs to shift its *raw_outline* before optimization
 gerber_edgecuts.shift(shift_for_subtraction_x, shift_for_subtraction_y)
 
-# 3. Optimize the contour (Sequencing and cleaning only, as shifting is done above)
+# 3. Optimize the contour
 optimized_edge_cuts = optimize_contour_points(gerber_edgecuts.raw_outline)
 
 if optimized_edge_cuts:
@@ -696,11 +717,9 @@ if optimized_edge_cuts:
     print(
         f"Final Bounds (PCB Corner @ {START_TARGET_X:.2f},{START_TARGET_Y:.2f}): X:{x_min:.2f}-{x_max:.2f}, Y:{y_min:.2f}-{y_max:.2f}")
 
-# ------------------------------------------
-
-# 5. Compute trace isolation toolpaths
+# 5. Compute trace isolation toolpaths (using the 3-pass logic)
 sh_base = ShapelyBases(gerber_traces)
-trace_mill_geometry = sh_base.compute_trace_toolpaths(ISOLATION_OFFSET, ISOLATION_PASSES, PASS_SPACING)
+trace_mill_geometry = sh_base.compute_trace_toolpaths(ISOLATION_OFFSET, PASS_SPACING)
 
 # 6. Generate Visualization
 visualizer = OutputVisualizer()
@@ -713,7 +732,7 @@ visualizer.save_png_visualization(f"{outname}_Visualization.png")
 # 7. Generate G-Code Files
 gcode = GcodeGenerator()
 
-# Pre-Drill Center Marking (NEW)
+# Pre-Drill Center Marking
 gcode.OutputPreDrillGcode(f"{outname}_Pre_Drill.gcode",
                           drilldata.holes)
 
@@ -730,6 +749,6 @@ gcode.OutputSmallDrillGcode(f"{outname}_Small_Drill.gcode",
 gcode.OutputLargeDrillGcode(f"{outname}_Large_Drill.gcode",
                             drilldata.large_holes)
 
-# Final Edge Cut - USES EDGE_CUT_CLEARANCE_OFFSET
+# Final Edge Cut
 gcode.OutputEdgeCutGcode(f"{outname}_Edge_Cut.gcode",
                          gerber_edgecuts.outline)

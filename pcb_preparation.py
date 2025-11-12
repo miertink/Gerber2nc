@@ -1,19 +1,16 @@
 #!/usr/bin/python3
 # Generates CNC tool paths (G-code) from a single-sided KiCad PCB layout.
-#
-# Tree Files will be exported:
-#
-# 1) xx_BedMesh_G29_CNC -> with G-code to 'bed mesh' the area of PCB
-# 2) xx_CountourMapping_CNC -> with G-code to move the CNC head around the perimeter of the PCB
-# 3) xx_ContourMapping_Visualization -> a PNG to visualized the PCB size and placement on the CNC
-#
-# Requires the 'numpy' library (pip install numpy).
-# Written by Alessandro Miertschink 2025, with use of Google-Gemini
+# Three Files will be exported:
+# 1) xx_BedMesh_G29_CNC -> G-code to 'bed mesh' the area of PCB
+# 2) xx_CountourMapping_CNC -> G-code to move the CNC head around the perimeter of the PCB
+# 3) xx_ContourMapping_Visualization -> PNG visualizing the PCB size and placement on the CNC
+# Requires 'numpy' and 'matplotlib' libraries (pip install numpy matplotlib).
 
 import os
 import numpy as np
 import re
 from typing import List, Tuple
+import matplotlib.pyplot as plt  # Import included here for reference
 
 # --- DEPENDENCIES CHECK (LIBRARIES MUST BE INSTALLED) ---
 try:
@@ -28,13 +25,20 @@ except ImportError:
     print("ERROR: 'matplotlib' package not installed. Install with 'pip install matplotlib'.")
     raise SystemExit(1)
 
-# --- CNC MACHINE (MARLIN) SETTINGS ---
+# --- CNC MACHINE & PCB PLACEMENT SETTINGS ---
 BED_SIZE_X = 240.0  # Bed width in mm
 BED_SIZE_Y = 220.0  # Bed depth in mm
-SAFETY_PADDING = 10.0  # Used for corner positioning (e.g., use 10 for x10,y10 start)
 
-Z_HOMING_FINAL = 30.0  # Z height after homing
-Z_MAPPING_HEIGHT = 5.0  # Z height for contour mapping
+# Target corner point for the PCB's bottom-left edge (X/Y Target).
+# This acts as the fixed (0,0) reference point for PCB placement logic.
+START_TARGET_X = 4.0
+START_TARGET_Y = 17.0
+
+# Bed Mesh padding around the PCB area (for the G29 command)
+MESH_PADDING = 0.0  # mm
+
+Z_HOMING_FINAL_HEIGHT = 20.0  # Z height after homing
+Z_MAPPING_HEIGHT = 2.0  # Z height for contour mapping
 FAST_SPEED = 10000  # G0 (rapid) movement speed
 CONTOUR_SPEED = 5000  # G1 (feed) movement speed
 CONTOUR_REPETITIONS = 5  # Number of times to loop the contour
@@ -43,7 +47,7 @@ MM_PER_UNIT = 1.0  # Scale factor, usually 1.0
 
 # --- GERBER PARSING SETTINGS ---
 COORD_REGEX = re.compile(r'X([-]?\d+)Y([-]?\d+)')
-GERBER_SCALE_FACTOR = 1000000.0  # CRITICAL: Factor to convert raw Gerber integers to MM
+GERBER_SCALE_FACTOR = 1000000.0  # Factor to convert raw Gerber integers to MM
 FLOAT_TOLERANCE = 1e-4  # Tolerance for float comparison
 
 
@@ -55,6 +59,7 @@ def is_close_to_zero(x, y):
 def optimize_contour_points(contour_coords: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     """
     Positions, sequences, and cleans the contour points. Input coords MUST be in MM.
+    START_TARGET_X/Y define the fixed corner position.
     """
     if not contour_coords:
         return []
@@ -65,13 +70,12 @@ def optimize_contour_points(contour_coords: List[Tuple[float, float]]) -> List[T
     min_x_raw = np.min(coords_array[:, 0])
     min_y_raw = np.min(coords_array[:, 1])
 
-    start_x_target = 0.0
-    start_y_target = 0.0
+    # The offset moves the raw corner (min_x_raw, min_y_raw) to the defined target (START_TARGET_X, START_TARGET_Y)
+    offset_x = START_TARGET_X - min_x_raw
+    offset_y = START_TARGET_Y - min_y_raw
 
-    offset_x = start_x_target - min_x_raw + SAFETY_PADDING
-    offset_y = start_y_target - min_y_raw + SAFETY_PADDING
-
-    print(f"CORNER POS: Original min X/Y: ({min_x_raw:.2f}, {min_y_raw:.2f})")
+    print(f"CORNER POS: Original Min X/Y: ({min_x_raw:.2f}, {min_y_raw:.2f})")
+    print(f"CORNER POS: Target corner set to ({START_TARGET_X:.2f}, {START_TARGET_Y:.2f}).")
     print(f"CORNER POS: Applying offset X: {offset_x:.2f}, Y: {offset_y:.2f} mm")
 
     # Apply the offset
@@ -107,6 +111,7 @@ def optimize_contour_points(contour_coords: List[Tuple[float, float]]) -> List[T
     # Final removal of points outside expected bounds
     final_clean_list = []
     for x, y in temp_filtered_list:
+        # Extra tolerance buffer around bed size
         if x < -5.0 or x > BED_SIZE_X + 5.0 or y < -5.0 or y > BED_SIZE_Y + 5.0:
             print(f"WARNING: Anomaly ({x:.2f}, {y:.2f}) removed.")
         else:
@@ -161,6 +166,7 @@ def extract_contour_from_gerber(contour_filepath: str) -> List[Tuple[float, floa
 def create_contour_png(contour: List[Tuple[float, float]], base_name: str):
     """
     Creates a 2D plot of the optimized contour and saves it as a PNG file.
+    CORRECTED: Sets explicit axis limits to include the PCB's corner target (START_TARGET_X, START_TARGET_Y).
     """
     if not contour:
         print("WARNING: Empty contour. Cannot generate PNG.")
@@ -175,16 +181,41 @@ def create_contour_png(contour: List[Tuple[float, float]], base_name: str):
     ax.plot(x_coords, y_coords, marker='o', linestyle='-', color='blue', linewidth=2, markersize=4,
             label='Sequenced Contour')
 
-    # Highlight the start point
-    ax.plot(x_coords[0], y_coords[0], marker='o', color='red', markersize=6, label='Start Point')
+    # Highlight the Start Point of the G-code sequence
+    ax.plot(x_coords[0], y_coords[0], marker='o', color='red', markersize=6, label='G-code Start Point')
 
+    # Highlight the fixed target position (START_TARGET_X, START_TARGET_Y)
+    ax.plot(START_TARGET_X, START_TARGET_Y, marker='x', color='green', markersize=8, markeredgewidth=2,
+            label=f'Target Corner ({START_TARGET_X:.1f}, {START_TARGET_Y:.1f})')
+
+    # --- CORRECTION: Set Explicit Axis Limits ---
+
+    min_x = np.min(x_coords)
+    min_y = np.min(y_coords)
+
+    # 1. Determine min/max boundaries including the PCB and the origin (0,0)
+    # Start the X-axis from 0.0 or a little less, and the Y-axis from 0.0 or a little less.
+    x_min_plot = min(0.0, min_x) - 5.0  # Adds 5mm margin to the left of the board/origin
+    y_min_plot = min(0.0, min_y) - 5.0  # Adds 5mm margin below the board/origin
+
+    x_max_plot = np.max(x_coords) + 10.0  # Adds 10mm margin to the right
+    y_max_plot = np.max(y_coords) + 10.0  # Adds 10mm margin above
+
+    ax.set_xlim(x_min_plot, x_max_plot)
+    ax.set_ylim(y_min_plot, y_max_plot)
+
+    # 2. Draw a line to indicate the CNC origin (0,0)
+    ax.axvline(0, color='gray', linestyle='--', linewidth=0.5)
+    ax.axhline(0, color='gray', linestyle='--', linewidth=0.5, label='CNC Origin (0,0)')
+
+    # Set Titles and Labels
     ax.set_title(f"Optimized Contour Visualization: {base_name}")
     ax.set_xlabel("X Axis (mm)")
     ax.set_ylabel("Y Axis (mm)")
 
     ax.set_aspect('equal', adjustable='box')
     ax.grid(True, linestyle='--', alpha=0.7)
-    ax.legend()
+    ax.legend(loc='upper right')
 
     output_png = f"{base_name}_ContourMapping_Visualization.png"
     plt.savefig(output_png, bbox_inches='tight', dpi=300)
@@ -193,10 +224,11 @@ def create_contour_png(contour: List[Tuple[float, float]], base_name: str):
     print(f"VISUALIZATION: Contour PNG saved as: {output_png}")
 
 
-def calculate_mesh_bounds(optimized_coords: List[Tuple[float, float]], mesh_padding: float = 5.0) -> Tuple[
+def calculate_mesh_bounds(optimized_coords: List[Tuple[float, float]]) -> Tuple[
     float, float, float, float]:
     """
     Calculates G29 bounds (L, F, R, B) using positioned coordinates plus padding.
+    Bounds are clamped by 0.0 and BED_SIZE.
     """
     if not optimized_coords:
         raise ValueError("No coordinates found for mesh bounds.")
@@ -210,10 +242,11 @@ def calculate_mesh_bounds(optimized_coords: List[Tuple[float, float]], mesh_padd
     max_y = np.max(coords_array[:, 1])
 
     # Apply padding and clamp within bed limits
-    X_start = max(0.0, min_x - mesh_padding)
-    Y_start = max(0.0, min_y - mesh_padding)
-    X_end = min(BED_SIZE_X, max_x + mesh_padding)
-    Y_end = min(BED_SIZE_Y, max_y + mesh_padding)
+    # X_start: min_x of the board minus padding, limited by 0.0 (safety against negative coordinates)
+    X_start = max(0.0, min_x - MESH_PADDING)
+    Y_start = max(0.0, min_y - MESH_PADDING)
+    X_end = min(BED_SIZE_X, max_x + MESH_PADDING)
+    Y_end = min(BED_SIZE_Y, max_y + MESH_PADDING)
 
     print(f"\nBED MESH BOUNDS (G29): X: {X_start:.2f}-{X_end:.2f}, Y: {Y_start:.2f}-{Y_end:.2f} mm")
 
@@ -233,7 +266,7 @@ def generate_bed_mesh_gcode(base_name: str, bounds: Tuple[float, float, float, f
 
     gcode_lines.append("\n; --- Homing and Preparation ---")
     gcode_lines.append("G28 ; Home X, Y, and Z axes")
-    gcode_lines.append(f"G0 Z{Z_HOMING_FINAL:.2f} F{FAST_SPEED} ; Raise Z to safety height")
+    gcode_lines.append(f"G0 Z{Z_HOMING_FINAL_HEIGHT:.2f} F{FAST_SPEED} ; Raise Z to safety height")
 
     gcode_lines.append("\n; --- Execute Bed Mesh (G29) on PCB area ---")
 
@@ -244,7 +277,7 @@ def generate_bed_mesh_gcode(base_name: str, bounds: Tuple[float, float, float, f
 
     gcode_lines.append("\n; --- Finalization ---")
     gcode_lines.append("M500 ; Save Bed Mesh to EEPROM")
-    gcode_lines.append(f"G0 Z{Z_HOMING_FINAL:.2f} F{FAST_SPEED} ; Raise Z for safety")
+    gcode_lines.append(f"G0 Z{Z_HOMING_FINAL_HEIGHT:.2f} F{FAST_SPEED} ; Raise Z for safety")
     gcode_lines.append("M84 ; Disable Motors")
 
     return "\n".join(gcode_lines)
@@ -260,7 +293,7 @@ def generate_circular_contour_gcode(base_name: str, contour: List[Tuple[float, f
     gcode_lines.append("G90 ; Absolute Positioning")
     gcode_lines.append("\n; --- Homing and Safety Height ---")
     gcode_lines.append("G28 ; Home X, Y, and Z axes")
-    gcode_lines.append(f"G0 Z{Z_HOMING_FINAL:.2f} F{FAST_SPEED} ; Raise Z after Homing")
+    gcode_lines.append(f"G0 Z{Z_HOMING_FINAL_HEIGHT:.2f} F{FAST_SPEED} ; Raise Z after Homing")
     gcode_lines.append("\n; --- Bed Leveling Compensation ---")
     gcode_lines.append(BED_MESH_COMMAND)
     gcode_lines.append(f"\n; --- Circular Mapping Contour ({CONTOUR_REPETITIONS} Loops) ---")
@@ -282,14 +315,14 @@ def generate_circular_contour_gcode(base_name: str, contour: List[Tuple[float, f
 
         # Start from index 1 (P2)
         for x, y in contour[1:]:
-            # Movement command (XNN.NN YNN.NN in MM)
+            # Movement command
             gcode_lines.append(f"G1 X{x:.2f} Y{y:.2f} F{CONTOUR_SPEED}")
 
         gcode_lines.append(f"; END OF LOOP {i + 1}")
 
     # Finalization
     gcode_lines.append("\n; --- Finalization ---")
-    gcode_lines.append(f"G0 Z{Z_HOMING_FINAL:.2f} F{FAST_SPEED} ; Raise Z to safety height")
+    gcode_lines.append(f"G0 Z{Z_HOMING_FINAL_HEIGHT:.2f} F{FAST_SPEED} ; Raise Z to safety height")
     gcode_lines.append("M84 ; Disable Motors")
 
     return "\n".join(gcode_lines)
