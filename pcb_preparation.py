@@ -39,8 +39,8 @@ MESH_PADDING = 0.0  # mm
 
 Z_HOMING_FINAL_HEIGHT = 20.0  # Z height after homing
 Z_MAPPING_HEIGHT = 2.0  # Z height for contour mapping
-FAST_SPEED = 10000  # G0 (rapid) movement speed
-CONTOUR_SPEED = 5000  # G1 (feed) movement speed
+FAST_SPEED = 5000  # G0 (rapid) movement speed
+CONTOUR_SPEED = 2000  # G1 (feed) movement speed
 CONTOUR_REPETITIONS = 5  # Number of times to loop the contour
 BED_MESH_COMMAND = "M420 S1 ; Enable Saved Bed Leveling"
 MM_PER_UNIT = 1.0  # Scale factor, usually 1.0

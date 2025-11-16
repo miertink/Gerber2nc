@@ -19,23 +19,27 @@ FLOAT_TOLERANCE = 1e-4  # Float comparison tolerance
 SMALL_HOLE_MAX_DIAMETER = 0.85  # Max diameter for 'small' drill group
 
 # CNC Milling Parameters
-SPINDLE_SPEED = 12000  # RPM
-CUT_DEPTH = -0.08  # mm (Trace isolation depth)
-FINAL_CUT_DEPTH = -0.5  # mm (Final edge cut depth)
+SPINDLE_SPEED = 254  # Full speed
 SAFE_HEIGHT = 5.0  # mm above workpiece
+
+# Trace Isolation Path Calculation
+CUT_DEPTH = -0.06  # mm (Trace isolation depth)
+ISOLATION_OFFSET = 0.22  # mm (Distance from trace center for first pass)
+PASS_SPACING = 0.04  # mm (Spacing between secondary passes)
+
+# Rate Parameters
 MOVE_FEED_RATE = 2000  # mm/min (G0 X/Y speed)
 PLUNGE_FEED_RATE = 50  # mm/min (Z axis feed rate)
 CUT_FEED_RATE = 100  # mm/min (XY final cut feed rate)
 FEED_RATE = 100  # mm/min (XY trace feed rate)
-HOLE_START_DEPTH = 0.1  # Depth before slow drilling
-HOLE_PRE_DEPTH = -0.1  # mm (Light plunge for center marking)
-HOLE_FINAL_DEPTH = -1.8  # Final hole depth
 
-# Trace Isolation Path Calculation
-ISOLATION_OFFSET = 0.22  # mm (Distance from trace center for first pass)
-PASS_SPACING = 0.1  # mm (Spacing between secondary passes)
+# Drilling Parameters
+HOLE_START_DEPTH = -1.2  # Depth before slow drilling (considering a new bed mesh with a pcb on top of the work-pcb)
+HOLE_PRE_DEPTH = -0.2  # mm (Light plunge for center marking)
+HOLE_FINAL_DEPTH = -3.0  # Final hole depth
 
 # Edge Cut Parameters
+FINAL_CUT_DEPTH = -0.5  # mm (Final edge cut depth)
 EDGE_CUT_CLEARANCE_OFFSET = 1.0  # mm (Offset distance for final cut path, positive is outside)
 MESH_PADDING = 5.0  # mm (Reserved for bed mesh bounds)
 
@@ -475,7 +479,7 @@ class GcodeGenerator:
         f.write(f"(load {tool_name})\nT{tool_num} M06\n")
 
         speed = speed_override if speed_override is not None else SPINDLE_SPEED
-        f.write(f"S{speed} M3  ; Start spindle clockwise\n")
+        f.write(f"M3 {speed} ; Start spindle clockwise\n")
         f.write(f"G0 Z{SAFE_HEIGHT:.2f} F{MOVE_FEED_RATE}\n")
 
     def _write_footer(self, f):
