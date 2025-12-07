@@ -106,4 +106,4 @@ Due to potential drill bit length variations and the intentional **disabling of 
 -------------------------
 This G-code will HOME, start the spindle, and execute the **small diameter hole drilling**.
 
-**Repeat the entire process again starting from  (Tool Change, Z-Referencing) to run the **`xx_Large_Drill`**.
+**Repeat the entire process again starting from Tool Change, Z-Referencing to run the **`xx_Large_Drill`**.
