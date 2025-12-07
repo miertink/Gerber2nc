@@ -90,8 +90,6 @@ Due to potential drill bit length variations and the intentional **disabling of 
 
 #### **Z-Referencing Procedure (Repeat for Small and Large Drill)**
 
-### Z-REFERENCING STEPS**
-
 1.  **Tool Change:** **REPLACE** the V-Engraving bit with the appropriate **DRILL BIT** (start with the smaller diameter).
 2.  **Run `xx_CheckPos_CNC`:** Positions the drill bit at the bottom-left point.
 3.  **Manual Move:** After the G-code finishes, **manually jog** the drill bit to a point where the **PROBE can make contact** with an **un-milled conductive** part of the board.
