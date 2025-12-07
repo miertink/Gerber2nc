@@ -90,7 +90,7 @@ Due to potential drill bit length variations and the intentional **disabling of 
 
 #### **Z-Referencing Procedure (Repeat for Small and Large Drill)**
 
-**$1^{***}$ Z-REFERENCING STEPS**
+### Z-REFERENCING STEPS**
 
 1.  **Tool Change:** **REPLACE** the V-Engraving bit with the appropriate **DRILL BIT** (start with the smaller diameter).
 2.  **Run `xx_CheckPos_CNC`:** Positions the drill bit at the bottom-left point.
@@ -106,4 +106,4 @@ Due to potential drill bit length variations and the intentional **disabling of 
 -------------------------
 This G-code will HOME, start the spindle, and execute the **small diameter hole drilling**.
 
-**Repeat the entire process again starting from $1^{***}$** (Tool Change, Z-Referencing) to run the **`xx_Large_Drill`**.
+**Repeat the entire process again starting from  (Tool Change, Z-Referencing) to run the **`xx_Large_Drill`**.
