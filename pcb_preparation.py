@@ -31,8 +31,8 @@ BED_SIZE_Y = 220.0  # Bed depth in mm
 
 # Target corner point for the PCB's bottom-left edge (X/Y Target).
 # This acts as the fixed (0,0) reference point for PCB placement logic.
-START_TARGET_X = 4.0
-START_TARGET_Y = 17.0
+START_TARGET_X = 0.0
+START_TARGET_Y = 32.0
 
 # Bed Mesh padding around the PCB area (for the G29 command)
 MESH_PADDING = 0.0  # mm
