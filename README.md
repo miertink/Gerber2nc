@@ -41,34 +41,13 @@ This script focuses on physically aligning the PCB and generating the **Bed Mesh
 ### Stage 2: Machining (`gerber2nc_v3.py`)
 This script generates the final cutting toolpaths and drilling holes.
 
-* **Trace Isolation:** Converts copper traces into offset paths for isolation milling, supporting single or multi-pass routing.
-* **Drilling Separation:** Separates holes into **"small"** and **"large"** groups for dedicated drilling files.
-* **Edge Cut Clearance:** Generates a final edge cut G-code with a customizable **clearance offset** around the board outline.
-* **Visualization:** Outputs a `.png` image showing all toolpaths, holes, and the PCB contour. 
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-Both scripts require the `numpy` and `matplotlib` libraries, and `gerber2nc_v3.py` additionally requires `shapely` and `Pillow`.
-
-```bash
-pip install numpy matplotlib shapely Pillow
-```
-
-# ⚙️ KiCad Gerber to CNC G-Code Generator (Python)
-
-This Python script is a robust tool designed to transform **KiCad Gerber** and **Excellon drill files** into optimized **G-Code** for PCB milling machines. It handles trace isolation routing, drilling, and incorporates advanced features like **edge cut clearance**  generation for clean board separation.
-
-## ✨ Features
-
 * **Automatic Toolpath Generation:** Converts copper traces into offset paths for isolation milling using `shapely`.
 * **Single or Multi-Pass Isolation:** Supports single or multiple passes with defined spacing for wider isolation areas.
 * **Two-Group Drilling:** Separates holes into "small" and "large" groups for optimized drilling with different tools.
 * **Contour Separation:** Generates a final edge cut G-code file with a customizable **clearance offset**.
 * **Visualization:** Outputs a `.png` image showing all toolpaths, holes, and the PCB contour with clearance and tabs.
+
+---
 
 ## 🚀 Getting Started
 
