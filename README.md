@@ -5,6 +5,8 @@ This repository contains two Python scripts designed to transform **KiCad Gerber
 The script is based on Matthias Wandel script:
 https://github.com/Matthias-Wandel/Gerber2nc
 
+Big thanks on GOOGLE GEMINI, who supported me a lot in the improvement of the scripts.
+
 The workflow is divided into two distinct stages: **Preparation** (`pcb_preparation_v2.py`) and **Machining** (`gerber2nc_v3.py`).
 
 
