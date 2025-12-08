@@ -4,6 +4,10 @@ This guide details the PCB milling process using two Python scripts (`pcb_prepar
 
 ---
 
+### Project Origin
+
+This entire PCB milling workflow, including the G-code generation and the two-stage process, was specifically developed and tested on a custom **CNC machine converted from an Anycubic Mega-S 3D Printer**. The system relies on a **custom Marlin firmware** implementation to handle the necessary G-code commands (such as Bed Mesh probing and spindle control) for precise isolation milling.
+
 ## 1. Initial Setup and Bed Mesh Creation (Phase 1)
 
 This stage uses the **preparation script** to generate alignment files and the surface compensation routine.
