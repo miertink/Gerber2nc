@@ -13,8 +13,8 @@ This stage uses the **preparation script** to generate alignment files and the s
 | File | Purpose |
 | :--- | :--- |
 | `xx_BedMesh_G29_CNC` | G-code for **PROBE (Bed Mesh)** across the PCB area. |
-| `xx_ContourMapping_CNC` | G-code to move the head **around the perimeter** (for verification). |
-| `xx_CheckPos_CNC` | G-code to **position the tool** at the starting point (bottom-left) of the PCB. |
+| `xx_ContourMapping_CNC` | G-code to move the tool head **around the perimeter** (for verification). |
+| `xx_CheckPos_CNC` | G-code to **position the tool head** at the starting point (bottom-left) of the PCB. |
 | `xx_ContourMapping_Visualization` | **PNG visualization** of positioning and Bed Mesh area. |
 
 ### 🛠️ Alignment and Preparation Procedure
@@ -29,9 +29,9 @@ This stage uses the **preparation script** to generate alignment files and the s
 
 | Command | Description |
 | :--- | :--- |
-| **Run `xx_CheckPos_CNC`** | Positions the tool at the **bottom-left point (Start Point)** of the PCB. |
+| **Run `xx_CheckPos_CNC`** | Positions the tool head at the **bottom-left point (Start Point)** of the PCB. |
 | **Note:** | The PCB must be **very firm and flat** on the CNC Work Area. Secure it using thin, quality double-sided tape. |
-| **Run `xx_ContourMapping_CNC`** | Moves the tool around the **PCB perimeter** (at a safe Z height) to confirm alignment with the physical board. |
+| **Run `xx_ContourMapping_CNC`** | Moves the tool head around the **PCB perimeter** (at a safe Z height) to confirm alignment with the physical board. |
 
 #### **PROBE Preparation (Bed Mesh)**
 
