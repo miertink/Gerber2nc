@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Generated G-code / visualization output (regenerate from the Gerber sources)
+*.nc
+*.gcode
+*_visualization.png
+*_Visualization.png
+
+# KiCad Gerber / drill exports used as sample input (project-specific, not part of the tool)
+*.gbr
+*.drl
+*.gbrjob
