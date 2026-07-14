@@ -4,7 +4,7 @@ Two Python scripts that turn a **KiCad Gerber/Excellon export** into ready-to-ru
 
 ![Example toolpath visualization](images/example_pcb.png)
 
-*Gray = board, red = copper (traces, pads, drilled islands), orange = copper zone/teardrop fill, yellow = board outline & drill rims, white = isolation milling toolpath.*
+*Dark gray = board, red = copper (traces, pads, drilled islands), muted red = copper zone/teardrop fill, yellow = board outline & drill rims, near-black = isolation milling toolpath.*
 
 ## ⚠️ Disclaimer
 
@@ -136,16 +136,17 @@ Both scripts are configured via constants near the top of the file — edit them
 
 ## 5. Visualization color legend
 
-The `_visualization.png` produced by `gerber2nc_v2.py` uses a KiCad-like palette:
+The `_visualization.png` produced by `gerber2nc_v2.py` uses a KiCad-like palette, defined as `COLOR_*` constants on `OutputVisualizer`:
 
-| Color | Meaning |
-| :--- | :--- |
-| 🩶 Gray | Board area (inside the outline). |
-| 🟥 Red | Traces, pads, and drilled copper islands. |
-| 🟧 Orange | Interior fill of copper zones / teardrops (Gerber `G36`/`G37` regions). |
-| 🟨 Yellow | Board outline and drill-hole rims. |
-| ⬜ White | Calculated isolation-milling toolpath. |
-| ⬛ Black | Drilled holes and everything outside the board. |
+| Color | RGB | Meaning |
+| :--- | :--- | :--- |
+| Dark gray | `(60, 60, 60)` | Board area (inside the outline). |
+| Red | `(200, 0, 0)` | Traces, pads, and drilled copper islands. |
+| Muted red | `(200, 80, 80)` | Interior fill of copper zones / teardrops (Gerber `G36`/`G37` regions). |
+| Yellow | `(255, 255, 0)` | Board outline and drill-hole rims. |
+| Orange | `(255, 165, 0)` | Outward-offset clearance line for the final edge cut (`EDGE_CUT_CLEARANCE_OFFSET`). |
+| Near-black | `(20, 20, 20)` | Calculated isolation-milling toolpath. |
+| Black | `(0, 0, 0)` | Drilled holes and everything outside the board. |
 
 ---
 
