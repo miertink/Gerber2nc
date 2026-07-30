@@ -8,6 +8,15 @@
 #
 # Requires: numpy, matplotlib  (pip install numpy matplotlib)
 # Written by Alessandro Miertschink 2025
+#
+# Key improvements (companion script, see gerber2nc.py):
+# - Gerber aperture support for obround, RoundRect, and general aperture
+#   macros (including rotated free-form polygon pads), plus G36/G37 copper
+#   zone (region) fills, which previously produced missing or malformed pads.
+# - KiCad-like visualization palette: gray board, red copper, yellow outline,
+#   orange zone-fill interiors.
+# - README rewritten to match the current scripts, config values, and output
+#   file names end-to-end.
 
 import os
 import re
