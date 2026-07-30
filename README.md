@@ -1,6 +1,8 @@
-# ⚙️ Gerber2nc — KiCad Gerber to CNC G-Code (PCB Isolation Milling)
+# ⚙️ KiCad Gerber to CNC G-Code (PCB Isolation Milling)
 
 Two Python scripts that turn a **KiCad Gerber/Excellon export** into ready-to-run **G-code** for milling a single-sided PCB on a CNC machine (trace isolation, drilling, board-outline cutout, and bed-leveling helpers).
+
+A fork of [Gerber2nc](https://github.com/Matthias-Wandel/Gerber2nc).
 
 ![Example toolpath visualization](images/example_pcb.png)
 
